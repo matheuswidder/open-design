@@ -1,5 +1,11 @@
+import type { AppConfigPrefs } from '@open-design/contracts';
 import { isOpenAICompatible } from '../providers/openai-compatible';
-import type { ApiProtocol, AppConfig, MediaProviderCredentials, PetConfig } from '../types';
+import type {
+  ApiProtocol,
+  AppConfig,
+  MediaProviderCredentials,
+  PetConfig,
+} from '../types';
 
 const STORAGE_KEY = 'open-design:config';
 const CONFIG_MIGRATION_VERSION = 1;
@@ -74,7 +80,12 @@ export const KNOWN_PROVIDERS: KnownProvider[] = [
     protocol: 'anthropic',
     baseUrl: 'https://api.deepseek.com/anthropic',
     model: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4-flash', 'deepseek-v4-pro'],
+    models: [
+      'deepseek-chat',
+      'deepseek-reasoner',
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
+    ],
   },
   {
     label: 'MiniMax — Anthropic',
@@ -103,7 +114,12 @@ export const KNOWN_PROVIDERS: KnownProvider[] = [
     protocol: 'openai',
     baseUrl: 'https://api.deepseek.com',
     model: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4-flash', 'deepseek-v4-pro'],
+    models: [
+      'deepseek-chat',
+      'deepseek-reasoner',
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
+    ],
   },
   {
     label: 'MiniMax — OpenAI',
@@ -163,7 +179,10 @@ export function loadConfig(): AppConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_CONFIG, pet: normalizePet(DEFAULT_PET) };
     const parsed = JSON.parse(raw) as Partial<AppConfig>;
-    const parsedHasApiProtocol = Object.prototype.hasOwnProperty.call(parsed, 'apiProtocol');
+    const parsedHasApiProtocol = Object.prototype.hasOwnProperty.call(
+      parsed,
+      'apiProtocol',
+    );
     const merged: AppConfig = {
       ...DEFAULT_CONFIG,
       ...parsed,
@@ -183,7 +202,9 @@ export function loadConfig(): AppConfig {
         // whether the user is on a known provider and switch defaults appropriately.
         // null means "custom/unknown provider" so the protocol switch won't override
         // their custom base URL.
-        const knownProvider = KNOWN_PROVIDERS.find((p) => p.baseUrl === merged.baseUrl);
+        const knownProvider = KNOWN_PROVIDERS.find(
+          (p) => p.baseUrl === merged.baseUrl,
+        );
         merged.apiProviderBaseUrl = knownProvider?.baseUrl ?? null;
       }
       merged.configMigrationVersion = CONFIG_MIGRATION_VERSION;
@@ -218,6 +239,36 @@ export async function syncMediaProvidersToDaemon(
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ providers, force: Boolean(options?.force) }),
+    });
+  } catch {
+    // Daemon offline; localStorage keeps the user's copy for the next save.
+  }
+}
+
+export async function fetchDaemonConfig(): Promise<AppConfigPrefs | null> {
+  try {
+    const res = await fetch('/api/app-config');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.config ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function syncConfigToDaemon(config: AppConfig): Promise<void> {
+  const prefs: AppConfigPrefs = {
+    onboardingCompleted: config.onboardingCompleted,
+    agentId: config.agentId,
+    agentModels: config.agentModels,
+    skillId: config.skillId,
+    designSystemId: config.designSystemId,
+  };
+  try {
+    await fetch('/api/app-config', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(prefs),
     });
   } catch {
     // Daemon offline; localStorage keeps the user's copy for the next save.
