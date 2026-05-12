@@ -2884,6 +2884,8 @@ export async function startServer({
     paths: pathDeps,
     projectStore: projectStoreDeps,
     exports: projectExportDeps,
+    projectFiles: projectFileDeps,
+    validation: validationDeps,
   });
   registerProjectFileRoutes(app, {
     db,
